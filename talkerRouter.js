@@ -5,9 +5,12 @@ const writeFile = require('./writeFile');
 const talkerRouter = express.Router();
 
 const validateToken = (req, res, next) => {
-  const { token } = req.headers;
-  if (!token) return res.status(401).json({ message: 'Token não encontrado' });
-  if (token.length !== 16) return res.status(401).json({ message: 'Token inválido' });
+  const { authorization } = req.headers;
+  if (!authorization || authorization === '') {
+    return res.status(401).json({ message: 'Token não encontrado' });
+  }
+
+  if (authorization.length !== 16) return res.status(401).json({ message: 'Token inválido' });
   return next();
 };
 
@@ -22,11 +25,63 @@ const validateName = (req, res, next) => {
 };
 
 const validateAge = (req, res, next) => {
-  const talkerContent = readFiles('./talker.json');
   const { age } = req.body;
-  if (!age || age === '') return res.status(400).json({ message: 'O campo "age" é obrigatório' });
-  parseInt(age) < 18
-   ? 
+  if (!age || age === '' || typeof age !== 'number') {
+    return res.status(400).json({ message: 'O campo "age" é obrigatório' });
+  }
+  return parseInt(age, 10) < 18
+   ? res.status(400).json({ message: 'A pessoa palestrante deve ser maior de idade' })
+   : next();
+};
+
+const validateObjTalk = (req, res, next) => {
+  const { talk } = req.body;
+  if (!talk || talk === '') {
+    return res.status(400)
+    .json({ message: 'O campo "talk" é obrigatório e "watchedAt" e "rate" não podem ser vazios' });
+  }
+  const { watchedAt, rate } = talk;
+  if (!rate || !watchedAt) {
+    return res.status(400)
+    .json({ message: 'O campo "talk" é obrigatório e "watchedAt" e "rate" não podem ser vazios' });
+  }
+  return next();
+};
+
+const validateObjTalkAux = (req, res, next) => {
+  const { talk } = req.body;
+  const { watchedAt, rate } = talk;
+  if (rate === '' || watchedAt === '') {
+    return res.status(400)
+    .json({ message: 'O campo "talk" é obrigatório e "watchedAt" e "rate" não podem ser vazios' });
+  }
+  return next();
+};
+
+const validateRate = (req, res, next) => {
+  const { talk } = req.body;
+  const { rate } = talk;
+  return (typeof rate !== 'number' || (rate < 1 || rate > 5))
+    ? res.status(400).json({ message: 'O campo "rate" deve ser um inteiro de 1 à 5' })
+    : next();
+};
+
+const validateWatchedAt = (req, res, next) => {
+  const { talk } = req.body;
+  const { watchedAt } = talk;
+  const regexDate = /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/i;
+  return !regexDate.test(watchedAt)
+    ? res.status(400).json({ message: 'O campo "watchedAt" deve ter o formato "dd/mm/aaaa"' })
+    : next();
+};
+
+const writeInJson = async (req, res) => {
+  const talkerContent = await readFiles('./talker.json');
+  const id = talkerContent.length + 1;
+  const { name, age, talk } = req.body;
+  talkerContent.push({ name, age, talk, id });
+  writeFile('./talker.json', talkerContent);
+  return res.status(201).json(talkerContent[id - 1]);
 };
 
 const HTTP_OK_STATUS = 200;
@@ -47,6 +102,8 @@ talkerRouter.get('/:id', async (req, res) => {
 });
 
 talkerRouter.post('/', validateToken, validateName,
-  validateAge);
+  validateAge, validateObjTalk,
+  validateObjTalkAux, validateRate,
+  validateWatchedAt, writeInJson);
 
 module.exports = talkerRouter;
