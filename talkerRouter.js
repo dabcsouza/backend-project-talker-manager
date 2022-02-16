@@ -4,6 +4,8 @@ const writeFile = require('./writeFile');
 
 const talkerRouter = express.Router();
 
+const filePath = './talker.json';
+
 const validateToken = (req, res, next) => {
   const { authorization } = req.headers;
   if (!authorization || authorization === '') {
@@ -40,8 +42,14 @@ const validateObjTalk = (req, res, next) => {
     return res.status(400)
     .json({ message: 'O campo "talk" é obrigatório e "watchedAt" e "rate" não podem ser vazios' });
   }
+  return next();
+};
+
+const validateObjKeys = (req, res, next) => {
+  const { talk } = req.body;
   const { watchedAt, rate } = talk;
-  if (!rate || !watchedAt) {
+  if ((!rate && rate !== 0) || !watchedAt) {
+    console.log(talk);
     return res.status(400)
     .json({ message: 'O campo "talk" é obrigatório e "watchedAt" e "rate" não podem ser vazios' });
   }
@@ -76,23 +84,38 @@ const validateWatchedAt = (req, res, next) => {
 };
 
 const writeInJson = async (req, res) => {
-  const talkerContent = await readFiles('./talker.json');
+  const talkerContent = await readFiles(filePath);
   const id = talkerContent.length + 1;
   const { name, age, talk } = req.body;
   talkerContent.push({ name, age, talk, id });
-  writeFile('./talker.json', talkerContent);
+  writeFile(filePath, talkerContent);
   return res.status(201).json(talkerContent[id - 1]);
+};
+
+const editJson = async (req, res) => {
+  const talkerContent = await readFiles(filePath);
+  const { id } = req.params;
+  const { name, age, talk } = req.body;
+  const NewTalkerContent = talkerContent.map(({ name: innerName,
+    age: innerAge, talk: innerTalk, id: innerId }) => {
+    if (innerId === Number(id)) {
+      return { name, age, talk, id: innerId };
+    }
+    return { name: innerName, Age: innerAge, talk: innerTalk, id: innerId };
+  });
+  writeFile(filePath, NewTalkerContent);
+  return res.status(200).json(NewTalkerContent.find((el) => el.id === Number(id)));
 };
 
 const HTTP_OK_STATUS = 200;
 
 talkerRouter.get('/', async (_req, res) => {
-  const talkerContent = await readFiles('./talker.json');
+  const talkerContent = await readFiles(filePath);
   return res.status(HTTP_OK_STATUS).json(talkerContent);
 });
 
 talkerRouter.get('/:id', async (req, res) => {
-  const talkerContent = await readFiles('./talker.json');
+  const talkerContent = await readFiles(filePath);
   const { id } = req.params;
   const arrayResponse = talkerContent
     .find((person) => person.id === Number(id));
@@ -102,8 +125,13 @@ talkerRouter.get('/:id', async (req, res) => {
 });
 
 talkerRouter.post('/', validateToken, validateName,
-  validateAge, validateObjTalk,
+  validateAge, validateObjTalk, validateObjKeys,
   validateObjTalkAux, validateRate,
   validateWatchedAt, writeInJson);
+
+talkerRouter.put('/:id', validateToken, validateName,
+validateAge, validateObjTalk, validateObjKeys,
+validateObjTalkAux, validateRate,
+validateWatchedAt, editJson);
 
 module.exports = talkerRouter;
