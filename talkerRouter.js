@@ -134,4 +134,12 @@ validateAge, validateObjTalk, validateObjKeys,
 validateObjTalkAux, validateRate,
 validateWatchedAt, editJson);
 
+talkerRouter.delete('/:id', validateToken, async (req, res) => {
+  const talkerContent = await readFiles(filePath);
+  const { id } = req.params;
+  const NewTalkerContent = talkerContent.filter((el) => el.id !== Number(id));
+  writeFile(filePath, NewTalkerContent);
+  return res.status(204).json();
+});
+
 module.exports = talkerRouter;
