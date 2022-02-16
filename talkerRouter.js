@@ -114,6 +114,12 @@ talkerRouter.get('/', async (_req, res) => {
   return res.status(HTTP_OK_STATUS).json(talkerContent);
 });
 
+talkerRouter.get('/search', validateToken, async (req, res) => {
+  const talkerContent = await readFiles(filePath);
+  const { q } = req.query;
+  return res.status(200).json(talkerContent.filter((talker) => talker.name.includes(q)));
+});
+
 talkerRouter.get('/:id', async (req, res) => {
   const talkerContent = await readFiles(filePath);
   const { id } = req.params;
